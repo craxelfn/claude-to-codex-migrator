@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "migrate-to-codex",
+      "name": "claude-to-codex-migrator",
       "source": {
         "source": "url",
-        "url": "https://github.com/craxelfn/migrate-to-codex.git",
+        "url": "https://github.com/craxelfn/claude-to-codex-migrator.git",
         "ref": "main"
       },
       "policy": {

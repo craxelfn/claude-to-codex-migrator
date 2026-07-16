@@ -1,9 +1,9 @@
 ---
-name: migrate-to-codex
+name: claude-to-codex-migrator
 description: Migrate Claude skills, plugins, assistant packages, ZIP archives, pasted files, repository trees, or implementation documentation into clean Codex Skills or plugins. Use when Codex must inventory a source package, choose Skill versus plugin architecture, preserve behavior, rewrite platform-specific instructions, validate MCP or hooks, remove Claude branding from the distributable output, and produce migration and cleanup reports.
 ---
 
-# Migrate to Codex
+# Claude to Codex Migrator
 
 Migrate source packages through a clean-room, report-backed workflow. Use the bundled scripts for deterministic staging, inventory, transformation, cleanup scanning, and validation. Apply judgment only where the reports identify semantic or unsupported work.
 

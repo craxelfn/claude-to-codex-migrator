@@ -1,6 +1,6 @@
-# Migrate to Codex
+# Claude to Codex Migrator
 
-`migrate-to-codex` is a skills-only Codex plugin that converts Claude skills, plugins, commands, agents, and integration bundles into validated Codex Skills or plugins.
+`claude-to-codex-migrator` is a skills-only Codex plugin that converts Claude skills, plugins, commands, agents, and integration bundles into validated Codex Skills or plugins.
 
 It inventories every source file, chooses the simplest compatible Codex architecture, performs deterministic transformations, scans the generated package for source-platform leftovers, and produces decision, migration, cleanup, and validation reports.
 
@@ -19,33 +19,33 @@ The plugin has no MCP server, connector, authentication flow, or external runtim
 Add this repository as a Codex marketplace source:
 
 ```bash
-codex plugin marketplace add craxelfn/migrate-to-codex --ref main
+codex plugin marketplace add craxelfn/claude-to-codex-migrator --ref main
 ```
 
 Install the plugin from that marketplace:
 
 ```bash
-codex plugin add migrate-to-codex@oussama-lakrafi
+codex plugin add claude-to-codex-migrator@oussama-lakrafi
 ```
 
 Start a new Codex session after installation so the bundled Skill is discovered.
 
-You can also open Codex and enter `/plugins`, select the **Oussama Lakrafi** marketplace, then install **Migrate to Codex** from the plugin browser.
+You can also open Codex and enter `/plugins`, select the **Oussama Lakrafi** marketplace, then install **Claude to Codex Migrator** from the plugin browser.
 
 ## Use the plugin
 
-Describe the migration naturally or invoke the Skill explicitly with `$migrate-to-codex`.
+Describe the migration naturally or invoke the Skill explicitly with `$claude-to-codex-migrator`.
 
 Examples:
 
 ```text
-$migrate-to-codex migrate ./legacy-plugin into a clean Codex package.
+$claude-to-codex-migrator migrate ./legacy-plugin into a clean Codex package.
 
-$migrate-to-codex convert ./assistant-package.zip and put the result in ./migration-output.
+$claude-to-codex-migrator convert ./assistant-package.zip and put the result in ./migration-output.
 
-$migrate-to-codex inspect this repository, decide Skill versus plugin, migrate it, and report unresolved items.
+$claude-to-codex-migrator inspect this repository, decide Skill versus plugin, migrate it, and report unresolved items.
 
-$migrate-to-codex audit ./generated-package for Claude-specific filenames, metadata, and instructions.
+$claude-to-codex-migrator audit ./generated-package for Claude-specific filenames, metadata, and instructions.
 ```
 
 The migrator accepts:
@@ -85,7 +85,7 @@ Strict mode exits unsuccessfully when manual work or validation failures remain,
 When working from a clone of this repository, you can run the deterministic engine without installing the plugin:
 
 ```bash
-python3 skills/migrate-to-codex/scripts/migrate.py ./source-package \
+python3 skills/claude-to-codex-migrator/scripts/migrate.py ./source-package \
   --out ./migration-output \
   --strict
 ```
@@ -93,17 +93,17 @@ python3 skills/migrate-to-codex/scripts/migrate.py ./source-package \
 Inventory a package without generating output:
 
 ```bash
-python3 skills/migrate-to-codex/scripts/inventory_source.py ./source-package
+python3 skills/claude-to-codex-migrator/scripts/inventory_source.py ./source-package
 ```
 
 Validate or scan a generated package:
 
 ```bash
-python3 skills/migrate-to-codex/scripts/validate_output.py \
+python3 skills/claude-to-codex-migrator/scripts/validate_output.py \
   ./migration-output/package/<name> \
   --target auto
 
-python3 skills/migrate-to-codex/scripts/scan_leftovers.py \
+python3 skills/claude-to-codex-migrator/scripts/scan_leftovers.py \
   ./migration-output/package/<name>
 ```
 
@@ -112,7 +112,7 @@ python3 skills/migrate-to-codex/scripts/scan_leftovers.py \
 ```text
 .codex-plugin/plugin.json
 .agents/plugins/marketplace.json
-skills/migrate-to-codex/
+skills/claude-to-codex-migrator/
 ├── SKILL.md
 ├── agents/openai.yaml
 ├── references/
@@ -130,7 +130,7 @@ python3 -m unittest -v
 Run lint checks:
 
 ```bash
-ruff check skills/migrate-to-codex/scripts tests
+ruff check skills/claude-to-codex-migrator/scripts tests
 ```
 
 Before releasing a new version, update the semantic version in `.codex-plugin/plugin.json`, rerun the Skill and plugin validators, and test installation from the GitHub marketplace source.

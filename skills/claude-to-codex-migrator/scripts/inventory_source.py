@@ -18,7 +18,9 @@ def main() -> int:
     parser.add_argument("--stdin-name", default="SOURCE.md")
     args = parser.parse_args()
     stdin_text = sys.stdin.read() if args.source == "-" else None
-    with tempfile.TemporaryDirectory(prefix="migrate-to-codex-inventory-") as temporary:
+    with tempfile.TemporaryDirectory(
+        prefix="claude-to-codex-migrator-inventory-"
+    ) as temporary:
         root, source_kind = stage_source(
             args.source,
             Path(temporary),

@@ -1,4 +1,4 @@
-"""Deterministic migration engine used by the migrate-to-codex Skill."""
+"""Deterministic engine used by the claude-to-codex-migrator Skill."""
 
 from .engine import MigrationError, MigrationOptions, migrate
 from .discovery import (

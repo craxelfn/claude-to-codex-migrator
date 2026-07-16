@@ -51,7 +51,9 @@ def migrate(
         )
 
     workspace = Path(
-        tempfile.mkdtemp(prefix="migrate-to-codex-", dir=output_root.parent)
+        tempfile.mkdtemp(
+            prefix="claude-to-codex-migrator-", dir=output_root.parent
+        )
     )
     try:
         staged_root, source_kind = stage_source(

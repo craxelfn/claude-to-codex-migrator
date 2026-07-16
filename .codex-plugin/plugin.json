@@ -1,14 +1,14 @@
 {
-  "name": "migrate-to-codex",
-  "version": "0.1.0",
+  "name": "claude-to-codex-migrator",
+  "version": "0.2.0",
   "description": "Convert assistant skills, plugins, and integration bundles into validated Codex packages.",
   "author": {
     "name": "Oussama Lakrafi",
     "email": "oussama.lakrafi@oracle.com",
     "url": "https://github.com/craxelfn"
   },
-  "homepage": "https://github.com/craxelfn/migrate-to-codex",
-  "repository": "https://github.com/craxelfn/migrate-to-codex",
+  "homepage": "https://github.com/craxelfn/claude-to-codex-migrator",
+  "repository": "https://github.com/craxelfn/claude-to-codex-migrator",
   "keywords": [
     "codex",
     "migration",
@@ -17,7 +17,7 @@
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Migrate to Codex",
+    "displayName": "Claude to Codex Migrator",
     "shortDescription": "Convert assistant packages into clean Codex packages.",
     "longDescription": "Inventory, transform, and validate assistant skills and plugins as reusable Codex Skills or installable Codex plugins.",
     "developerName": "Oussama Lakrafi",

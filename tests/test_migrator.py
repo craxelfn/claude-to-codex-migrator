@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_ROOT = ROOT / "skills" / "migrate-to-codex"
+SKILL_ROOT = ROOT / "skills" / "claude-to-codex-migrator"
 SCRIPTS = SKILL_ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
@@ -59,7 +59,7 @@ class MigratorTests(unittest.TestCase):
         self.assertEqual(entry["source"]["source"], "url")
         self.assertEqual(
             entry["source"]["url"],
-            "https://github.com/craxelfn/migrate-to-codex.git",
+            "https://github.com/craxelfn/claude-to-codex-migrator.git",
         )
         self.assertEqual(entry["policy"]["installation"], "AVAILABLE")
         self.assertEqual(entry["policy"]["authentication"], "ON_INSTALL")
