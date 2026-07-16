@@ -1,0 +1,4 @@
+interface:
+  display_name: "Migrate to Codex"
+  short_description: "Cleanly migrate assistant packages to Codex"
+  default_prompt: "Use $migrate-to-codex to migrate this source package into a clean Codex Skill or plugin."
