@@ -36,6 +36,7 @@ Keep Skills as the workflow authoring unit even when a plugin is the distributio
 | Assets | `assets/` | Skill or plugin assets | Rename or keep |
 | Settings/LSP | Manual | Manual | Preserve outside package |
 | Tests/repository metadata | Preserve at original path | Preserve at original path | Rewrite or rename |
+| CI workflows and actions (`.github/workflows/`, `.github/actions/`) | Manual until trusted | Manual until trusted | Rewrite only with `--trust-runtime` |
 | Unknown files | Reference only if clearly textual guidance | Manual | Never silently drop |
 
 ## Skills

@@ -241,6 +241,10 @@ def classify_source_path(relative_path: str) -> str:
     if parts and parts[0].lower() in {"src", "lib", "bin"}:
         return "runtime-source"
     if parts and parts[0].lower() == ".github":
+        # Workflows and composite actions execute automatically on push/PR;
+        # they are runtime, not inert metadata.
+        if len(parts) >= 2 and parts[1].lower() in {"workflows", "actions"}:
+            return "ci-workflow"
         return "repository-metadata"
     if name in {
         ".gitignore",

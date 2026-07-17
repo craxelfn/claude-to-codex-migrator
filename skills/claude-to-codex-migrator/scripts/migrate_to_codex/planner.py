@@ -393,6 +393,21 @@ def build_plan(
             rewrites = (
                 ["Rewrite source-platform references"] if not source.binary else []
             )
+        elif kind == "ci-workflow":
+            if trust_runtime:
+                operation = "rewrite" if not source.binary else "rename"
+                target_path = _clean_relative(source.path)
+                reason = "Preserve the reviewed CI workflow in the migrated repository."
+                rewrites = (
+                    ["Rewrite source-platform references"] if not source.binary else []
+                )
+            else:
+                operation, target_path = "manual", None
+                reason = (
+                    "CI workflows and composite actions execute automatically once "
+                    "the repository is pushed; they are quarantined until reviewed. "
+                    "Re-run with --trust-runtime after verifying every step."
+                )
         elif kind == "repository-metadata":
             operation = "rewrite" if not source.binary else "rename"
             target_path = _clean_relative(source.path)

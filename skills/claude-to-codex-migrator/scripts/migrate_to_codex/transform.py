@@ -35,6 +35,7 @@ MECHANICAL_KINDS = {
     "runtime-source",
     "test",
     "repository-metadata",
+    "ci-workflow",
 }
 PROSE_SUFFIXES = {".md", ".markdown", ".txt"}
 

@@ -169,7 +169,22 @@ class MigratorTests(unittest.TestCase):
             self.assertTrue((result.package_root / ".gitignore").is_file())
             self.assertTrue((result.package_root / ".editorconfig").is_file())
             self.assertTrue(
+                (
+                    result.package_root / ".github" / "ISSUE_TEMPLATE" / "bug.md"
+                ).is_file()
+            )
+            # trust_runtime=True lets reviewed CI workflows and actions ship.
+            self.assertTrue(
                 (result.package_root / ".github" / "workflows" / "ci.yml").is_file()
+            )
+            self.assertTrue(
+                (
+                    result.package_root
+                    / ".github"
+                    / "actions"
+                    / "setup"
+                    / "action.yml"
+                ).is_file()
             )
             plan = json.loads(
                 (result.reports_root / "migration-plan.json").read_text(
@@ -828,12 +843,34 @@ class MigratorTests(unittest.TestCase):
             self.assertTrue(
                 (result.reports_root / "unresolved" / ".mcp.json").is_file()
             )
+            self.assertFalse(
+                (result.package_root / ".github" / "workflows").exists()
+            )
+            self.assertFalse((result.package_root / ".github" / "actions").exists())
+            self.assertTrue(
+                (
+                    result.reports_root
+                    / "unresolved"
+                    / ".github"
+                    / "workflows"
+                    / "ci.yml"
+                ).is_file()
+            )
             quarantined = {
                 item.source_path
                 for item in result.plan.manual_items
             }
             self.assertIn("hooks/hooks.json", quarantined)
             self.assertIn(".mcp.json", quarantined)
+            self.assertIn(".github/workflows/ci.yml", quarantined)
+            self.assertIn(".github/actions/setup/action.yml", quarantined)
+            # Inert repository metadata still ships without the trust flag.
+            self.assertTrue(
+                (
+                    result.package_root / ".github" / "ISSUE_TEMPLATE" / "bug.md"
+                ).is_file()
+            )
+            self.assertTrue((result.package_root / ".editorconfig").is_file())
 
     def test_output_overlapping_a_file_source_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

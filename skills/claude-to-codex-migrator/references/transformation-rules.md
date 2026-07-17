@@ -69,7 +69,7 @@ Use:
 - `hooks/hooks.json` for compatible plugin hooks
 - `.mcp.json` and `.app.json` only when their integration is present
 
-Keep reports, source snapshots, and migration commentary outside the package. Source tests migrate with the package at their original relative paths so the migrated code keeps its regression coverage.
+Keep reports, source snapshots, and migration commentary outside the package. Source tests migrate with the package at their original relative paths so the migrated code keeps its regression coverage. Inert repository metadata (ignore files, editor config, issue templates, CODEOWNERS) also migrates in place, but CI workflows and composite actions under `.github/workflows/` and `.github/actions/` execute automatically once the repository is pushed — they are quarantined as manual items unless `--trust-runtime` is supplied after review.
 
 ## Source-term cleanup
 
