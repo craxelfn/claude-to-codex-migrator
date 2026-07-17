@@ -16,7 +16,18 @@ from .common import (
 from .models import Inventory, SourceFile
 
 
-EXCLUDED_DIRECTORIES = {".git", "__pycache__", "node_modules"}
+EXCLUDED_DIRECTORIES = {
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".mypy_cache",
+}
+MAX_ZIP_ENTRIES = 10_000
+MAX_ZIP_TOTAL_BYTES = 512 * 1024 * 1024
 
 
 def _safe_destination(root: Path, relative: PurePosixPath) -> Path:
@@ -51,6 +62,8 @@ def _copy_source_tree(source: Path, destination: Path) -> None:
 def _extract_zip(source: Path, destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(source) as archive:
+        remaining = MAX_ZIP_TOTAL_BYTES
+        extracted = 0
         for info in archive.infolist():
             if info.flag_bits & 0x1:
                 raise ValueError(
@@ -63,10 +76,23 @@ def _extract_zip(source: Path, destination: Path) -> None:
             )
             if relative is None:
                 continue
+            # Excluded directories never reach the inventory, so they must not
+            # count against the caps either — a zipped source with a vendored
+            # node_modules behaves the same as the unzipped folder.
+            if any(part in EXCLUDED_DIRECTORIES for part in relative.parts):
+                continue
             mode = (info.external_attr >> 16) & 0xFFFF
             if stat.S_ISLNK(mode):
                 raise ValueError(
                     f"Symlink ZIP entries are not accepted: {info.filename}"
+                )
+            # Directory entries count against the cap too: each one creates a
+            # path on disk, so a directory-only archive can exhaust inodes just
+            # as well as a file-only one.
+            extracted += 1
+            if extracted > MAX_ZIP_ENTRIES:
+                raise ValueError(
+                    f"ZIP contains more than {MAX_ZIP_ENTRIES} entries: {source}"
                 )
             target = _safe_destination(destination, relative)
             if info.is_dir():
@@ -77,7 +103,18 @@ def _extract_zip(source: Path, destination: Path) -> None:
                 archive.open(info) as source_handle,
                 target.open("wb") as target_handle,
             ):
-                shutil.copyfileobj(source_handle, target_handle)
+                # Count actual decompressed bytes: declared sizes can lie.
+                while True:
+                    chunk = source_handle.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    if remaining < 0:
+                        raise ValueError(
+                            "ZIP contents exceed the maximum accepted total size "
+                            f"of {MAX_ZIP_TOTAL_BYTES} bytes: {source}"
+                        )
+                    target_handle.write(chunk)
 
 
 def _stage_stdin_bundle(value: str, destination: Path, stdin_name: str) -> None:
@@ -123,26 +160,33 @@ def stage_source(
     *,
     stdin_text: str | None = None,
     stdin_name: str = "SOURCE.md",
-) -> tuple[Path, str]:
-    destination = staging_parent / "source"
+) -> tuple[Path, str, str | None]:
+    """Stage the source and return (root, kind, source_name).
+
+    source_name carries the original folder/zip/file identity as explicit data
+    — it survives _resolve_wrapped_root descending into a wrapper directory,
+    which would otherwise swap the identity for the wrapper's name.
+    """
     if str(source) == "-":
         if stdin_text is None:
             raise ValueError("stdin input requires stdin_text")
+        destination = staging_parent / "source"
         _stage_stdin_bundle(stdin_text, destination, stdin_name)
-        return _resolve_wrapped_root(destination), "stdin"
+        return _resolve_wrapped_root(destination), "stdin", None
 
     source_path = Path(source).expanduser().resolve()
     if not source_path.exists():
         raise FileNotFoundError(f"Source does not exist: {source_path}")
+    destination = staging_parent / "source"
     if source_path.is_dir():
         _copy_source_tree(source_path, destination)
-        return _resolve_wrapped_root(destination), "folder"
+        return _resolve_wrapped_root(destination), "folder", source_path.name or None
     if zipfile.is_zipfile(source_path):
         _extract_zip(source_path, destination)
-        return _resolve_wrapped_root(destination), "zip"
+        return _resolve_wrapped_root(destination), "zip", source_path.stem or None
     destination.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_path, destination / source_path.name)
-    return destination, "file"
+    return destination, "file", source_path.stem or None
 
 
 def classify_source_path(relative_path: str) -> str:
@@ -201,7 +245,9 @@ def classify_source_path(relative_path: str) -> str:
     return "unknown"
 
 
-def inventory_source(root: Path, source_kind: str = "folder") -> Inventory:
+def inventory_source(
+    root: Path, source_kind: str = "folder", source_name: str | None = None
+) -> Inventory:
     files: list[SourceFile] = []
     warnings: list[str] = []
     for path in sorted(
@@ -234,4 +280,10 @@ def inventory_source(root: Path, source_kind: str = "folder") -> Inventory:
         )
     if not files:
         warnings.append("The staged source contains no files.")
-    return Inventory(root=root, source_kind=source_kind, files=files, warnings=warnings)
+    return Inventory(
+        root=root,
+        source_kind=source_kind,
+        files=files,
+        warnings=warnings,
+        source_name=source_name,
+    )

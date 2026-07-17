@@ -137,9 +137,13 @@ Before releasing a new version, update the semantic version in `.codex-plugin/pl
 
 ## Safety
 
-- ZIP traversal, absolute archive paths, encrypted entries, and symlinks are rejected.
-- Existing output is not replaced unless `--force` is explicit.
-- Migrated hooks and MCP executables are treated as untrusted and are never enabled automatically.
+- ZIP traversal, absolute archive paths, encrypted entries, symlinks, and archives exceeding size or entry-count limits are rejected.
+- Existing output is not replaced unless `--force` is explicit, and even then only when the target is a single file, an effectively empty directory, or a directory whose every file is listed in the migration's own ownership manifest (`reports/output-manifest.json`).
+- The output location must not overlap the source path in either direction.
+- Executable code, scripts, dependency manifests, and Markdown code spans receive only mechanical rewrites (environment variables, well-known paths) — never prose substitutions that would corrupt imports or dependency pins. Remaining source terms there are flagged by the cleanup scan as manual work.
+- Binary and oversized files are scanned at the byte level (ASCII and UTF-16) for source-platform terms, so they cannot bypass the cleanup scan.
+- Version-bearing model identifiers and external URLs in file contents are never rewritten automatically; the cleanup scan flags any that still mention the source platform so they become explicit manual work. Generated package names and paths are always fully rewritten.
+- Migrated hooks, MCP, and app configuration are quarantined under `reports/unresolved/` by default; `--trust-runtime` places them at active discovery paths only after review.
 - Unknown components are reported and preserved outside the distributable package instead of being silently discarded.
 - The migrator does not publish, install, or enable a generated package unless separately requested.
 

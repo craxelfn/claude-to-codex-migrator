@@ -1,3 +1,3 @@
 #!/bin/sh
-# Validate files after Claude tool use.
+# Validate files after tool use.
 exit 0

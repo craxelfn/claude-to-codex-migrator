@@ -1,6 +1,6 @@
 {
   "name": "claude-to-codex-migrator",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Convert assistant skills, plugins, and integration bundles into validated Codex packages.",
   "author": {
     "name": "Oussama Lakrafi",

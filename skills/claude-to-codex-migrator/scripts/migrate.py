@@ -30,6 +30,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--force", action="store_true", help="Replace an existing output root"
     )
+    parser.add_argument(
+        "--trust-runtime",
+        action="store_true",
+        help=(
+            "Place hooks, MCP, and app configuration at their active discovery "
+            "paths. Use only after reviewing every command and executable; "
+            "without this flag they are quarantined as manual items."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -41,6 +50,7 @@ def main() -> int:
         name=args.name,
         strict=args.strict,
         force=args.force,
+        trust_runtime=args.trust_runtime,
         stdin_text=stdin_text,
         stdin_name=args.stdin_name,
     )

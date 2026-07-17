@@ -14,12 +14,20 @@ from .common import (
     normalize_name,
     render_openai_yaml,
     render_skill,
+    rewrite_runtime_terms,
     rewrite_source_terms,
     split_frontmatter,
     write_json,
     write_text,
 )
 from .models import Inventory, MigrationPlan, PlanItem, SourceFile
+
+
+# Only documentation gets prose rewriting; executable and runtime content
+# (by classified kind, e.g. requirements.txt is runtime-config despite its
+# suffix) receives mechanical rewrites exclusively.
+MECHANICAL_KINDS = {"script", "hook", "mcp", "app", "runtime-config", "runtime-source"}
+PROSE_SUFFIXES = {".md", ".markdown", ".txt"}
 
 
 def _source_map(inventory: Inventory) -> dict[str, SourceFile]:
@@ -55,13 +63,35 @@ def _rewrite_internal_links(
     return MARKDOWN_LINK_RE.sub(replace, value)
 
 
+def _split_lead_heading(
+    body: str, fallback_title: str, *, markdown: bool = True
+) -> tuple[str, str]:
+    """Return (heading_line, remainder), reusing the body's own H1 when present
+    so generated titles never stack on it. Non-markdown bodies always get the
+    fallback: a leading '# ' there is content (a shell comment), not a title."""
+    stripped = body.strip()
+    if markdown and stripped.startswith("# "):
+        first, _, rest = stripped.partition("\n")
+        return first.strip(), rest.strip()
+    return f"# {fallback_title}", stripped
+
+
 def _reference_content(
     source: SourceFile, item: PlanItem, link_map: dict[str, str]
 ) -> str:
     metadata, body = split_frontmatter(source.text or "")
-    title = humanize(PurePosixPath(item.target_path or source.path).stem)
+    # Rewrite links and source terms BEFORE splitting the heading so a reused
+    # source H1 gets the same cleanup as the rest of the body.
+    body = _rewrite_internal_links(
+        body, source.path, item.target_path or source.path, link_map
+    )
+    body = rewrite_source_terms(body)
+    target = PurePosixPath(item.target_path or source.path)
+    heading, body = _split_lead_heading(
+        body, humanize(target.stem), markdown=target.suffix.lower() == ".md"
+    )
     description = metadata.get("description")
-    lines = [f"# {title}", ""]
+    lines = [heading, ""]
     if description:
         lines.extend([rewrite_source_terms(str(description)).strip(), ""])
     if source.kind == "agent":
@@ -86,10 +116,7 @@ def _reference_content(
                     "",
                 ]
             )
-    rewritten_body = _rewrite_internal_links(
-        body, source.path, item.target_path or source.path, link_map
-    )
-    lines.extend([rewrite_source_terms(rewritten_body).strip(), ""])
+    lines.extend([body, ""])
     return "\n".join(lines)
 
 
@@ -118,14 +145,18 @@ def _skill_content(
         body, source.path, item.target_path or source.path, link_map
     )
     if source.kind == "command":
-        heading = humanize(PurePosixPath(source.path).stem)
+        heading, remainder = _split_lead_heading(
+            body, humanize(PurePosixPath(source.path).stem)
+        )
         body = (
-            f"# {heading}\n\n"
+            f"{heading}\n\n"
             "Follow the workflow below and preserve its intended outcome.\n\n"
-            f"{body.strip()}"
+            f"{remainder}"
         )
     elif source.kind == "agent":
-        heading = humanize(PurePosixPath(source.path).stem)
+        heading, remainder = _split_lead_heading(
+            body, humanize(PurePosixPath(source.path).stem)
+        )
         tools = metadata.get("tools")
         assumptions = ""
         if tools:
@@ -138,9 +169,9 @@ def _skill_content(
         if metadata.get("model") and str(metadata.get("model")).lower() != "inherit":
             assumptions += "\n\nUse the active Codex model unless the user explicitly selects another valid target model."
         body = (
-            f"# {heading}\n\n"
+            f"{heading}\n\n"
             "Adopt the specialized role and preserve every constraint in the instructions below.\n\n"
-            f"{body.strip()}{assumptions}"
+            f"{remainder}{assumptions}"
         )
     return name, description, render_skill(name, description, body)
 
@@ -155,7 +186,11 @@ def _copy_or_rewrite(
     linked = _rewrite_internal_links(
         source.text or "", source.path, item.target_path or source.path, link_map
     )
-    rewritten = rewrite_source_terms(linked)
+    prose = (
+        source.kind not in MECHANICAL_KINDS
+        and destination.suffix.lower() in PROSE_SUFFIXES
+    )
+    rewritten = rewrite_source_terms(linked) if prose else rewrite_runtime_terms(linked)
     if destination.suffix.lower() == ".json":
         try:
             parsed = json.loads(rewritten)

@@ -49,11 +49,13 @@ class Inventory:
     source_kind: str
     files: list[SourceFile]
     warnings: list[str] = field(default_factory=list)
+    source_name: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "root": str(self.root),
             "sourceKind": self.source_kind,
+            "sourceName": self.source_name,
             "files": [item.to_dict() for item in self.files],
             "warnings": list(self.warnings),
         }

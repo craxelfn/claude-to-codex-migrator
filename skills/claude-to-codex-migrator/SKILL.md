@@ -54,6 +54,8 @@ python3 <skill-root>/scripts/migrate.py <source> --out <output> --strict
 
 Use `--target skill` or `--target plugin` only when the user or verified target architecture requires it. Use `--name <name>` to override the normalized package name. Use `--force` only when replacing the chosen output is intentional.
 
+Hooks, MCP, and app configuration are quarantined as manual items by default and preserved under `reports/unresolved/`. Review every hook command and MCP executable there, then re-run with `--trust-runtime` to place them at their active discovery paths. Never pass `--trust-runtime` on the first run of an unreviewed source.
+
 ### 3. Resolve semantic work
 
 Inspect these files after every run:
@@ -128,7 +130,9 @@ Multi-file bundle:
 ## Safety boundaries
 
 - Reject ZIP traversal, absolute archive paths, encrypted entries, and symlinks.
-- Refuse to replace existing output unless `--force` is explicit.
-- Treat hook commands and MCP executables as untrusted until reviewed.
+- Refuse to replace existing output unless `--force` is explicit, and only when every file is listed in the output's ownership manifest.
+- Refuse output locations that overlap the source path.
+- Treat hook commands and MCP executables as untrusted until reviewed; they stay quarantined unless `--trust-runtime` is passed after review.
+- Never apply prose rewrites to executable code or dependency manifests; only environment variables and well-known paths are rewritten there.
 - Keep unresolved original files under `reports/unresolved/`, never inside the package.
 - Do not install, publish, enable hooks, or modify marketplaces unless the user separately requests that action.

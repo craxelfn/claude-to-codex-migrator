@@ -21,13 +21,13 @@ def main() -> int:
     with tempfile.TemporaryDirectory(
         prefix="claude-to-codex-migrator-inventory-"
     ) as temporary:
-        root, source_kind = stage_source(
+        root, source_kind, source_name = stage_source(
             args.source,
             Path(temporary),
             stdin_text=stdin_text,
             stdin_name=args.stdin_name,
         )
-        result = inventory_source(root, source_kind)
+        result = inventory_source(root, source_kind, source_name)
         print(json.dumps(result.to_dict(), indent=2))
     return 0
 

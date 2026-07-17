@@ -4,11 +4,21 @@ import json
 from pathlib import PurePosixPath
 from typing import Any
 
-from .common import clean_path_part, normalize_name, rewrite_source_terms
+from .common import (
+    ENV_VAR_MAP,
+    SOURCE_ENV_VAR_RE,
+    clean_path_part,
+    normalize_name,
+    rewrite_source_terms,
+    split_frontmatter,
+)
 from .models import ArchitectureDecision, Inventory, MigrationPlan, PlanItem
 
 
 RUNTIME_KINDS = {"mcp", "app", "hook", "runtime-config", "runtime-source"}
+# Kinds that deterministically receive the delete operation — their content
+# never ships, so it must not trigger manual-work warnings.
+NEVER_SHIPPED_KINDS = {"test", "repository-metadata"}
 
 
 def _read_metadata(inventory: Inventory) -> dict[str, Any]:
@@ -25,12 +35,28 @@ def _read_metadata(inventory: Inventory) -> dict[str, Any]:
     root_skill = next(
         (item for item in inventory.files if item.path == "SKILL.md"), None
     )
+    skill_meta: dict[str, Any] = {}
+    if root_skill and root_skill.text:
+        skill_meta, _ = split_frontmatter(root_skill.text)
     return {
-        "name": inventory.root.name,
-        "description": "Reusable workflow migrated into Codex format.",
+        "name": str(
+            skill_meta.get("name") or inventory.source_name or inventory.root.name
+        ),
+        "description": str(
+            skill_meta.get("description")
+            or "Reusable workflow migrated into Codex format."
+        ),
         "version": "0.1.0",
         "sourceSkill": root_skill.path if root_skill else None,
     }
+
+
+def _unmapped_env_vars(inventory: Inventory) -> list[str]:
+    found: set[str] = set()
+    for item in inventory.files:
+        if item.text and item.kind not in NEVER_SHIPPED_KINDS:
+            found.update(SOURCE_ENV_VAR_RE.findall(item.text))
+    return sorted(found - set(ENV_VAR_MAP))
 
 
 def _unique_name(base: str, used: set[str]) -> str:
@@ -75,12 +101,19 @@ def build_plan(
     *,
     requested_target: str = "auto",
     requested_name: str | None = None,
+    trust_runtime: bool = False,
 ) -> MigrationPlan:
     metadata = _read_metadata(inventory)
     source_name = str(metadata.get("name") or inventory.root.name)
     target_name = normalize_name(requested_name or source_name)
     decision = _architecture(inventory, requested_target)
     warnings = list(inventory.warnings)
+    unmapped_env_vars = _unmapped_env_vars(inventory)
+    if unmapped_env_vars:
+        warnings.append(
+            "Unmapped source environment variables have no automatic Codex "
+            f"equivalent and require manual replacement: {', '.join(unmapped_env_vars)}."
+        )
     if decision.target == "skill" and any(
         item.kind in RUNTIME_KINDS for item in inventory.files
     ):
@@ -250,7 +283,7 @@ def build_plan(
             operation, target_path = "manual", None
             reason = "Non-Markdown command or agent resources require semantic review before placement."
         elif kind == "mcp":
-            if decision.target == "plugin":
+            if decision.target == "plugin" and trust_runtime:
                 operation, target_path = "rewrite", ".mcp.json"
                 reason = (
                     "Adapt MCP configuration and validate local runtime dependencies."
@@ -259,18 +292,31 @@ def build_plan(
                     "Rewrite local paths and source environment variables",
                     "Validate referenced executables",
                 ]
+            elif decision.target == "plugin":
+                operation, target_path = "manual", None
+                reason = (
+                    "MCP configuration launches local executables once the plugin is "
+                    "installed; it is quarantined until reviewed. Re-run with "
+                    "--trust-runtime after verifying every command and dependency."
+                )
             else:
                 operation, target_path = "manual", None
                 reason = "MCP runtime integration requires a plugin target."
         elif kind == "app":
-            if decision.target == "plugin":
+            if decision.target == "plugin" and trust_runtime:
                 operation, target_path = "rewrite", ".app.json"
                 reason = "Preserve the app mapping in the plugin package."
+            elif decision.target == "plugin":
+                operation, target_path = "manual", None
+                reason = (
+                    "App integration activates on install; it is quarantined until "
+                    "reviewed. Re-run with --trust-runtime after review."
+                )
             else:
                 operation, target_path = "manual", None
                 reason = "App integration requires a plugin target."
         elif kind == "hook":
-            if decision.target == "plugin":
+            if decision.target == "plugin" and trust_runtime:
                 operation, target_path = "rewrite", _clean_relative(source.path)
                 reason = (
                     "Adapt the hook and use default hooks/hooks.json plugin discovery."
@@ -279,6 +325,13 @@ def build_plan(
                     "Rewrite plugin environment variables",
                     "Preserve hook event and matcher semantics",
                 ]
+            elif decision.target == "plugin":
+                operation, target_path = "manual", None
+                reason = (
+                    "Hooks execute automatically once the plugin is installed; they "
+                    "are quarantined until reviewed. Re-run with --trust-runtime "
+                    "after verifying every hook command."
+                )
             else:
                 operation, target_path = "manual", None
                 reason = "Distributable runtime hooks require a plugin target."
