@@ -264,6 +264,31 @@ class MigratorTests(unittest.TestCase):
             finally:
                 server.close()
 
+    def test_binary_markdown_resource_does_not_crash_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "binary-md"
+            (source / "skills" / "demo").mkdir(parents=True)
+            (source / "skills" / "demo" / "SKILL.md").write_text(
+                "---\n"
+                "name: demo\n"
+                "description: Demo workflow. Use when demoing.\n"
+                "---\n\nBody.\n",
+                encoding="utf-8",
+            )
+            (source / "skills" / "demo" / "blob.md").write_bytes(b"\xff\xfe\x00\x01")
+
+            result = migrate(source, Path(temporary) / "result")
+
+            self.assertTrue(
+                (result.reports_root / "migration-plan.json").is_file()
+            )
+            preserved = sorted(result.package_root.rglob("blob.md"))
+            self.assertTrue(preserved, "binary Markdown resource was not preserved")
+            self.assertEqual(preserved[0].read_bytes(), b"\xff\xfe\x00\x01")
+            self.assertFalse(
+                any("UnicodeDecodeError" in error for error in result.validation.errors)
+            )
+
     def test_stdin_json_bundle_builds_skill(self) -> None:
         bundle = json.dumps(
             {
