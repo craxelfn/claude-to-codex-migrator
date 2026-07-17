@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import socket
 import sys
 import tempfile
 import unittest
@@ -222,6 +224,45 @@ class MigratorTests(unittest.TestCase):
                 archive.writestr("../escape.md", "unsafe")
             with self.assertRaises(ValueError):
                 migrate(archive_path, Path(temporary) / "result")
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires POSIX special files")
+    def test_fifo_and_socket_sources_are_rejected(self) -> None:
+        skill_text = (
+            "---\n"
+            "name: special-files\n"
+            "description: Guide work. Use when guiding.\n"
+            "---\n\nBody.\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            # A FIFO nested in a source directory must fail fast, not hang.
+            source = Path(temporary) / "fifo-source"
+            source.mkdir()
+            (source / "SKILL.md").write_text(skill_text, encoding="utf-8")
+            os.mkfifo(source / "pipe")
+            with self.assertRaises(ValueError):
+                migrate(source, Path(temporary) / "result-fifo")
+
+            # A FIFO passed as the top-level source must fail before
+            # is_zipfile() opens it.
+            top_level = Path(temporary) / "pipe-input"
+            os.mkfifo(top_level)
+            with self.assertRaises(ValueError):
+                migrate(top_level, Path(temporary) / "result-top-fifo")
+
+            # A socket nested in a source directory is rejected the same way.
+            sock_source = Path(temporary) / "socket-source"
+            sock_source.mkdir()
+            (sock_source / "SKILL.md").write_text(skill_text, encoding="utf-8")
+            server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                try:
+                    server.bind(str(sock_source / "app.sock"))
+                except OSError:
+                    self.skipTest("cannot bind AF_UNIX socket in tempdir")
+                with self.assertRaises(ValueError):
+                    migrate(sock_source, Path(temporary) / "result-socket")
+            finally:
+                server.close()
 
     def test_stdin_json_bundle_builds_skill(self) -> None:
         bundle = json.dumps(
