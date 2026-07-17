@@ -152,6 +152,38 @@ class MigratorTests(unittest.TestCase):
             validated = validate_package(result.package_root, "plugin")
             self.assertTrue(validated.ok, validated.errors)
 
+    def test_tests_and_repository_metadata_are_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "result"
+            result = migrate(
+                FIXTURES / "integration-source",
+                output,
+                MigrationOptions(strict=True, trust_runtime=True),
+            )
+
+            migrated_test = result.package_root / "tests" / "test_server.py"
+            self.assertTrue(migrated_test.is_file())
+            test_text = migrated_test.read_text(encoding="utf-8")
+            self.assertIn("PLUGIN_ROOT", test_text)
+            self.assertNotIn("CLAUDE_PLUGIN_ROOT", test_text)
+            self.assertTrue((result.package_root / ".gitignore").is_file())
+            self.assertTrue((result.package_root / ".editorconfig").is_file())
+            self.assertTrue(
+                (result.package_root / ".github" / "workflows" / "ci.yml").is_file()
+            )
+            plan = json.loads(
+                (result.reports_root / "migration-plan.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            dropped = [
+                item
+                for item in plan["items"]
+                if item["kind"] in {"test", "repository-metadata"}
+                and item["operation"] == "delete"
+            ]
+            self.assertEqual(dropped, [])
+
     def test_zip_input_is_safely_staged(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             temporary_path = Path(temporary)
@@ -998,18 +1030,33 @@ class MigratorTests(unittest.TestCase):
                 any("CLAUDE_PROJECT_DIR" in warning for warning in result.plan.warnings)
             )
 
-            # Never-shipped content and substring matches must not warn.
+            # Test files ship with the package, so their unmapped env vars warn.
+            noisy = Path(temporary) / "noisy-helper"
+            (noisy / "tests").mkdir(parents=True)
+            (noisy / "SKILL.md").write_text(
+                "---\n"
+                "name: noisy-helper\n"
+                "description: Noisy workflows. Use when noisy.\n"
+                "---\n\nRun the workflow.\n",
+                encoding="utf-8",
+            )
+            (noisy / "tests" / "fixture.py").write_text(
+                'URL = "$CLAUDE_SANDBOX_URL"\n', encoding="utf-8"
+            )
+            result = migrate(noisy, Path(temporary) / "noisy-result")
+            self.assertTrue(
+                any("CLAUDE_SANDBOX_URL" in warning for warning in result.plan.warnings)
+            )
+
+            # Substring matches must not warn.
             quiet = Path(temporary) / "quiet-helper"
-            (quiet / "tests").mkdir(parents=True)
+            quiet.mkdir()
             (quiet / "SKILL.md").write_text(
                 "---\n"
                 "name: quiet-helper\n"
                 "description: Quiet workflows. Use when quiet.\n"
                 "---\n\nExport MY_CLAUDE_TOKEN before running.\n",
                 encoding="utf-8",
-            )
-            (quiet / "tests" / "fixture.py").write_text(
-                'URL = "$CLAUDE_SANDBOX_URL"\n', encoding="utf-8"
             )
             result = migrate(quiet, Path(temporary) / "quiet-result")
             self.assertFalse(

@@ -240,7 +240,16 @@ def classify_source_path(relative_path: str) -> str:
         return "runtime-config"
     if parts and parts[0].lower() in {"src", "lib", "bin"}:
         return "runtime-source"
-    if name == ".gitignore":
+    if parts and parts[0].lower() == ".github":
+        return "repository-metadata"
+    if name in {
+        ".gitignore",
+        ".gitattributes",
+        ".gitmodules",
+        ".editorconfig",
+        ".mailmap",
+        "codeowners",
+    }:
         return "repository-metadata"
     return "unknown"
 
